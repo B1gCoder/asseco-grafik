@@ -1,0 +1,138 @@
+/* Definiujemy paletę kolorów jako zmienne */
+:root {
+    --bg-gradient: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+    --card-bg: rgba(255, 255, 255, 0.7);
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --accent-work: #3b82f6;
+    --accent-free: #10b981;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-gradient);
+    min-height: 100vh;
+    color: var(--text-main);
+    padding: 2.5rem 1.5rem;
+    display: flex;
+    justify-content: center;
+    /* Zapobiega skakaniu strony przy przewijaniu */
+    overflow-y: scroll; 
+}
+
+.container {
+    width: 100%;
+    max-width: 480px; /* Idealna szerokość dla mobilnych interfejsów */
+}
+
+header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    color: #0f172a;
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    color: #475569;
+    font-size: 1rem;
+    font-weight: 400;
+    opacity: 0.8;
+}
+
+/* GŁÓWNY STYL KAFELKÓW (Glassmorphism) */
+.dzien-karta {
+    background: var(--card-bg);
+    /* Efekt matowego szkła: */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 20px;
+    padding: 1.5rem;
+    margin-bottom: 1.2rem;
+    
+    /* Miękkie, nowoczesne cienie */
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 
+                0 8px 10px -6px rgba(0, 0, 0, 0.01);
+                
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    
+    /* Ozdobny pasek z boku */
+    border-left: 6px solid var(--accent-work);
+    
+    /* Płynna animacja przy dotyku/najechaniu */
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Reakcja na najechanie (na komputerze) */
+.dzien-karta:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 
+                0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Wariant kafelka dla dni wolnych */
+.dzien-karta.wolne {
+    border-left-color: var(--accent-free);
+    background: rgba(255, 255, 255, 0.4); /* Bardziej przezroczyste dla odróżnienia */
+}
+
+.data {
+    font-weight: 600;
+    font-size: 1.15rem;
+    letter-spacing: -0.5px;
+}
+
+/* Stylizacja samych godzin - wyglądają jak małe przyciski/tagi */
+.godziny {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--accent-work);
+    background: rgba(59, 130, 246, 0.15);
+    padding: 0.5rem 1rem;
+    border-radius: 12px;
+    letter-spacing: -0.5px;
+}
+
+.wolne .godziny {
+    color: var(--accent-free);
+    background: rgba(16, 185, 129, 0.15);
+}
+
+/* Animacja ładowania */
+.loader {
+    text-align: center;
+    color: #475569;
+    font-weight: 400;
+    font-size: 1.1rem;
+    animation: pulsowanie 2s infinite ease-in-out;
+}
+
+@keyframes pulsowanie {
+    0% { opacity: 0.4; }
+    50% { opacity: 1; }
+    100% { opacity: 0.4; }
+}
+
+.karta-bledu {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    padding: 1rem;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mój Grafik Pracy</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Mój Grafik</h1>
+            <p class="subtitle">Harmonogram na najbliższe dni</p>
+        </header>
+        
+        <div id="grafik-pojemnik">
+            <div class="loader">Synchronizacja z chmurą...</div>
+        </div>
+    </div>
+
+    <script>
+        async function pobierzIWyswietlGrafik() {
+            try {
+                const odpowiedz = await fetch('moj_grafik.json');
+                const dane = await odpowiedz.json();
+                
+                const pojemnik = document.getElementById('grafik-pojemnik');
+                pojemnik.innerHTML = ''; 
+
+                dane.forEach(dzien => {
+                    const karta = document.createElement('div');
+                    const czyWolne = !dzien.od || dzien.od.trim() === '';
+                    
+                    karta.className = 'dzien-karta' + (czyWolne ? ' wolne' : '');
+                    
+                    const godzinyTekst = czyWolne ? 'WOLNE' : `${dzien.od} - ${dzien.do}`;
+
+                    karta.innerHTML = `
+                        <div class="data">${dzien.data}</div>
+                        <div class="godziny">${godzinyTekst}</div>
+                    `;
+                    
+                    pojemnik.appendChild(karta);
+                });
+            } catch (blad) {
+                document.getElementById('grafik-pojemnik').innerHTML = '<div class="karta-bledu">Nie udało się załadować danych.</div>';
+                console.error(blad);
+            }
+        }
+
+        pobierzIWyswietlGrafik();
+    </script>
+</body>
+</html>
