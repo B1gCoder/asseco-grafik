@@ -57,26 +57,39 @@ h1 {
 
 /* ---- PANEL STATYSTYK (Dostosowany do Dark UI) ---- */
 .statystyki-panel {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Tworzy siatkę 2x2 */
+    gap: 12px;
+    margin-bottom: 2.5rem;
 }
 
 .stat-karta {
-    flex: 1;
     background: var(--card-bg);
     border-radius: 12px;
-    padding: 1rem 0.5rem;
+    padding: 1.2rem 0.5rem;
     text-align: center;
     border: 1px solid var(--card-border);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
+/* Karta Przepracowane (Akcent Niebieski) */
 .stat-karta.akcent {
-    background: rgba(56, 189, 248, 0.05); /* Bardzo delikatne podświetlenie tła */
+    background: rgba(56, 189, 248, 0.05); 
     border-color: rgba(56, 189, 248, 0.3);
 }
+.stat-karta.akcent .stat-tytul { color: var(--accent-work); opacity: 0.8; }
+.stat-karta.akcent .stat-wartosc { color: var(--accent-work); text-shadow: 0 0 10px rgba(56, 189, 248, 0.4); }
+
+/* Karta Kasa/Wypłata (Akcent Szmaragdowy) */
+.stat-karta.akcent-kasa {
+    background: rgba(16, 185, 129, 0.05); 
+    border-color: rgba(16, 185, 129, 0.3);
+}
+.stat-karta.akcent-kasa .stat-tytul { color: var(--accent-free); opacity: 0.9; }
+.stat-karta.akcent-kasa .stat-wartosc { color: var(--accent-free); text-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
 
 .stat-tytul { 
     font-size: 0.75rem; 
@@ -87,13 +100,8 @@ h1 {
     margin-bottom: 5px; 
 }
 
-.stat-karta.akcent .stat-tytul { 
-    color: var(--accent-work); 
-    opacity: 0.8; 
-}
-
 .stat-wartosc { 
-    font-size: 1.5rem; 
+    font-size: 1.4rem; 
     font-weight: 800; 
     color: var(--text-main); 
 }
