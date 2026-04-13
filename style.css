@@ -151,3 +151,11 @@ h1 {
     text-align: center;
     border: 1px solid rgba(239, 68, 68, 0.2);
 }
+
+/* Efekt podświetlenia dla dzisiejszego dnia */
+.dzien-karta.dzisiaj {
+    border: 2px solid #ef4444; /* Czerwona ramka */
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+    transform: scale(1.02); /* Lekkie powiększenie kafelka */
+    border-left: 6px solid #ef4444; /* Podmiana bocznego paska na czerwony */
+}
