@@ -1,0 +1,41 @@
+name: Codzienny Scraper Grafiku
+
+on:
+  schedule:
+    # Uruchamia się codziennie o 3:00 w nocy czasu UTC (4:00/5:00 w Polsce)
+    - cron: '0 3 * * *' 
+  workflow_dispatch: # Dodaje nam magiczny przycisk do ręcznego odpalania bota!
+
+jobs:
+  pobierz_grafik:
+    runs-on: ubuntu-latest
+    
+    # Dodajemy uprawnienia, żeby bot mógł nadpisać plik z grafikiem w repozytorium
+    permissions:
+      contents: write
+
+    steps:
+      - name: Kopiowanie kodu na serwer
+        uses: actions/checkout@v3
+
+      - name: Instalacja środowiska Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Instalowanie bota (Puppeteer)
+        run: npm install
+
+      - name: Odpalenie zwiadowcy w Asseco!
+        env:
+          ASSECO_LOGIN: ${{ secrets.ASSECO_LOGIN }}
+          ASSECO_PASSWORD: ${{ secrets.ASSECO_PASSWORD }}
+        run: node index.js
+
+      - name: Zapisanie nowego grafiku
+        run: |
+          git config --global user.name 'Asseco Bot'
+          git config --global user.email 'bot@github.com'
+          git add moj_grafik.json
+          git commit -m "Zaktualizowano grafik z systemu" || exit 0
+          git push
