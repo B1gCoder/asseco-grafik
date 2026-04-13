@@ -4,19 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mój Grafik Pracy</title>
-    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <header>
             <h1>Mój Grafik</h1>
-            <p class="subtitle">Harmonogram na najbliższe dni</p>
+            <p class="subtitle" id="nastepna-zmiana">Ładowanie danych...</p>
         </header>
+
+        <div class="statystyki-panel">
+            <div class="stat-karta">
+                <div class="stat-tytul">Suma godzin</div>
+                <div class="stat-wartosc" id="stat-suma">0h</div>
+            </div>
+            <div class="stat-karta">
+                <div class="stat-tytul">Z tego nocki</div>
+                <div class="stat-wartosc" id="stat-nocki">0h</div>
+            </div>
+            <div class="stat-karta akcent">
+                <div class="stat-tytul">Przepracowano</div>
+                <div class="stat-wartosc" id="stat-zrobione">0h</div>
+            </div>
+        </div>
         
         <div id="grafik-pojemnik">
             <div class="loader">Synchronizacja z chmurą...</div>
@@ -24,53 +37,152 @@
     </div>
 
     <script>
+        // Zmienne do trzymania naszych statystyk
+        let lacznieGodzin = 0;
+        let nockiGodzin = 0;
+        let zrobioneGodzin = 0;
+        
+        // Pobieramy zaznaczone dni z pamięci telefonu (jeśli coś tam już jest)
+        let przepracowaneDni = JSON.parse(localStorage.getItem('przepracowane')) || [];
+
+        // Funkcja do obliczania czasu trwania zmiany (radzi sobie z nockami przez północ)
+        function policzCzas(od, doGodzina) {
+            if (!od || !doGodzina || (od === '00:00' && doGodzina === '00:00')) return 0;
+            let [h1, m1] = od.split(':').map(Number);
+            let [h2, m2] = doGodzina.split(':').map(Number);
+            let start = h1 + (m1 / 60);
+            let koniec = h2 + (m2 / 60);
+            if (koniec < start) koniec += 24; // Przejście przez północ
+            return koniec - start;
+        }
+
+        // Funkcja przeliczająca i aktualizująca liczniki na ekranie
+        function aktualizujStatystyki() {
+            document.getElementById('stat-suma').innerText = lacznieGodzin + 'h';
+            document.getElementById('stat-nocki').innerText = nockiGodzin + 'h';
+            document.getElementById('stat-zrobione').innerText = zrobioneGodzin + 'h';
+        }
+
         async function pobierzIWyswietlGrafik() {
             try {
-                const odpowiedz = await fetch('moj_grafik.json');
+                // Zapobiega cachowaniu pliku JSON - zawsze pobiera świeży!
+                const odpowiedz = await fetch('moj_grafik.json?v=' + Date.now());
                 const dane = await odpowiedz.json();
                 
                 const pojemnik = document.getElementById('grafik-pojemnik');
                 pojemnik.innerHTML = ''; 
 
-                dane.forEach(dzien => {
-                    const karta = document.createElement('div');
-                    
-                    // 1. Sprawdzamy czy to dzień wolny (brak godzin lub 00:00 - 00:00)
+                const dzisiaj = new Date();
+                const dzisiejszaData = dzisiaj.toISOString().split('T')[0];
+                let nastepnaZmianaZaleziona = false;
+
+                dane.forEach((dzien, index) => {
+                    // RESET ZMIENNYCH DLA DANEGO DNIA
                     const czyWolne = !dzien.od || dzien.od.trim() === '' || (dzien.od === '00:00' && dzien.do === '00:00');
-                    
-                    // 2. Sprawdzamy czy to nocka (zaczyna się o 22:00)
                     const czyNocka = dzien.od === '22:00'; 
-                    
-                    // 3. Sprawdzamy czy ten kafelek to dzisiejszy dzień
-                    const dzisiejszaData = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
                     const czyDzisiaj = dzien.data === dzisiejszaData;
+                    const czasZmiany = policzCzas(dzien.od, dzien.do);
                     
-                    // Przypisujemy odpowiednie klasy CSS
-                    karta.className = 'dzien-karta' + (czyWolne ? ' wolne' : '') + (czyDzisiaj ? ' dzisiaj' : '');
+                    // Sprawdzanie czy to weekend
+                    const dataObiekt = new Date(dzien.data);
+                    const dzienTygodnia = dataObiekt.getDay(); // 0 = Niedziela, 6 = Sobota
+                    const czyWeekend = dzienTygodnia === 0 || dzienTygodnia === 6;
+
+                    // AKTUALIZACJA GŁÓWNYCH LICZNIKÓW
+                    lacznieGodzin += czasZmiany;
+                    if (czyNocka) nockiGodzin += czasZmiany;
                     
-                    // Budujemy tekst godzin z odpowiednimi emotikonami
-                    let godzinyTekst = '';
-                    if (czyWolne) {
-                        godzinyTekst = 'WOLNE 🎉';
-                    } else {
-                        godzinyTekst = `${dzien.od} - ${dzien.do} ${czyNocka ? '🌙' : '☀️'}`;
+                    // Sprawdzamy czy dzień był już odhaczony w pamięci
+                    const czyOdhaczony = przepracowaneDni.includes(dzien.data);
+                    if (czyOdhaczony) zrobioneGodzin += czasZmiany;
+
+                    // ODLICZANIE DO NASTĘPNEJ ZMIANY
+                    if (!czyWolne && !nastepnaZmianaZaleziona) {
+                        const dataZmiany = new Date(`${dzien.data}T${dzien.od}:00`);
+                        if (dataZmiany > dzisiaj) {
+                            nastepnaZmianaZaleziona = true;
+                            // Proste odliczanie - ile godzin zostało
+                            const zostaloMs = dataZmiany - dzisiaj;
+                            const zostaloGodzin = Math.floor(zostaloMs / (1000 * 60 * 60));
+                            if(zostaloGodzin < 24) {
+                                document.getElementById('nastepna-zmiana').innerHTML = `⏳ Następna zmiana za: <b>~${zostaloGodzin}h</b>`;
+                            } else {
+                                const zostaloDni = Math.floor(zostaloGodzin / 24);
+                                document.getElementById('nastepna-zmiana').innerHTML = `⏳ Następna zmiana za: <b>${zostaloDni} dni</b>`;
+                            }
+                        }
                     }
 
-                    // Wrzucamy dane do kafelka (dodajemy też mały napis "Dzisiaj")
+                    // TWORZENIE KAFELKA
+                    const karta = document.createElement('div');
+                    
+                    // Nadawanie klas
+                    let klasy = 'dzien-karta';
+                    if (czyWolne) klasy += ' wolne';
+                    if (czyDzisiaj) klasy += ' dzisiaj';
+                    if (czyWeekend) klasy += ' weekend';
+                    if (czyOdhaczony) klasy += ' odhaczone'; // Wyciemnia kafelek, jeśli zrobiony
+                    karta.className = klasy;
+                    
+                    const godzinyTekst = czyWolne ? 'WOLNE 🎉' : `${dzien.od} - ${dzien.do} ${czyNocka ? '🌙' : '☀️'}`;
+
+                    // Budowa wnętrza kafelka (dodany checkbox)
                     karta.innerHTML = `
-                        <div class="data">
-                            ${dzien.data}
-                            ${czyDzisiaj ? '<span style="color: #ef4444; font-size: 0.8em; margin-left: 8px; font-weight: 800;">Dzisiaj!</span>' : ''}
+                        <div class="lewa-strona">
+                            <label class="custom-checkbox ${czyWolne ? 'ukryty' : ''}">
+                                <input type="checkbox" id="check-${index}" data-data="${dzien.data}" data-godziny="${czasZmiany}" ${czyOdhaczony ? 'checked' : ''}>
+                                <span class="checkmark"></span>
+                            </label>
+                            <div class="data-blok">
+                                <div class="data">${dzien.data}</div>
+                                ${czyDzisiaj ? '<div class="dzisiaj-tag">Dzisiaj!</div>' : ''}
+                            </div>
                         </div>
                         <div class="godziny">${godzinyTekst}</div>
                     `;
                     
                     pojemnik.appendChild(karta);
                 });
+
+                // Zabezpieczenie, jeśli nie znaleziono żadnej przyszłej zmiany
+                if(!nastepnaZmianaZaleziona) {
+                    document.getElementById('nastepna-zmiana').innerText = "Wszystkie zmiany w tym miesiącu za Tobą! 🍻";
+                }
+
+                aktualizujStatystyki();
+                obsluzCheckboxy();
+
             } catch (blad) {
-                document.getElementById('grafik-pojemnik').innerHTML = '<div class="karta-bledu">Nie udało się załadować danych.</div>';
+                document.getElementById('grafik-pojemnik').innerHTML = '<div class="karta-bledu">Nie udało się załadować danych z systemu.</div>';
                 console.error(blad);
             }
+        }
+
+        // Funkcja przypisująca akcje do checkboxów
+        function obsluzCheckboxy() {
+            const checkboxy = document.querySelectorAll('input[type="checkbox"]');
+            
+            checkboxy.forEach(box => {
+                box.addEventListener('change', function() {
+                    const dataDnia = this.getAttribute('data-data');
+                    const czasDnia = parseFloat(this.getAttribute('data-godziny'));
+                    const kartaDnia = this.closest('.dzien-karta');
+
+                    if (this.checked) {
+                        przepracowaneDni.push(dataDnia);
+                        zrobioneGodzin += czasDnia;
+                        kartaDnia.classList.add('odhaczone');
+                    } else {
+                        przepracowaneDni = przepracowaneDni.filter(d => d !== dataDnia);
+                        zrobioneGodzin -= czasDnia;
+                        kartaDnia.classList.remove('odhaczone');
+                    }
+                    
+                    // Zapisujemy nowy stan do pamięci telefonu
+                    localStorage.setItem('przepracowane', JSON.stringify(przepracowaneDni));
+                    aktualizujStatystyki();
+                });
+            });
         }
 
         pobierzIWyswietlGrafik();
