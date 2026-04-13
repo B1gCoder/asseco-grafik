@@ -2,7 +2,10 @@ const puppeteer = require('puppeteer');
 
 (async () => {
   console.log('Odpalam robota...');
-  const browser = await puppeteer.launch({ headless: true }); 
+  const browser = await puppeteer.launch({ 
+    headless: true, 
+    args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+  });
   const page = await browser.newPage();
   await page.setViewport({ width: 1920, height: 3000 });
 
