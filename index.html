@@ -34,14 +34,34 @@
 
                 dane.forEach(dzien => {
                     const karta = document.createElement('div');
-                    const czyWolne = !dzien.od || dzien.od.trim() === '';
                     
-                    karta.className = 'dzien-karta' + (czyWolne ? ' wolne' : '');
+                    // 1. Sprawdzamy czy to dzień wolny (brak godzin lub 00:00 - 00:00)
+                    const czyWolne = !dzien.od || dzien.od.trim() === '' || (dzien.od === '00:00' && dzien.do === '00:00');
                     
-                    const godzinyTekst = czyWolne ? 'WOLNE' : `${dzien.od} - ${dzien.do}`;
+                    // 2. Sprawdzamy czy to nocka (zaczyna się o 22:00)
+                    const czyNocka = dzien.od === '22:00'; 
+                    
+                    // 3. Sprawdzamy czy ten kafelek to dzisiejszy dzień
+                    const dzisiejszaData = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
+                    const czyDzisiaj = dzien.data === dzisiejszaData;
+                    
+                    // Przypisujemy odpowiednie klasy CSS
+                    karta.className = 'dzien-karta' + (czyWolne ? ' wolne' : '') + (czyDzisiaj ? ' dzisiaj' : '');
+                    
+                    // Budujemy tekst godzin z odpowiednimi emotikonami
+                    let godzinyTekst = '';
+                    if (czyWolne) {
+                        godzinyTekst = 'WOLNE 🎉';
+                    } else {
+                        godzinyTekst = `${dzien.od} - ${dzien.do} ${czyNocka ? '🌙' : '☀️'}`;
+                    }
 
+                    // Wrzucamy dane do kafelka (dodajemy też mały napis "Dzisiaj")
                     karta.innerHTML = `
-                        <div class="data">${dzien.data}</div>
+                        <div class="data">
+                            ${dzien.data}
+                            ${czyDzisiaj ? '<span style="color: #ef4444; font-size: 0.8em; margin-left: 8px; font-weight: 800;">Dzisiaj!</span>' : ''}
+                        </div>
                         <div class="godziny">${godzinyTekst}</div>
                     `;
                     
