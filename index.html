@@ -22,12 +22,16 @@
                 <div class="stat-wartosc" id="stat-suma">0h</div>
             </div>
             <div class="stat-karta">
-                <div class="stat-tytul">Z tego nocki</div>
-                <div class="stat-wartosc" id="stat-nocki">0h</div>
-            </div>
-            <div class="stat-karta akcent">
                 <div class="stat-tytul">Przepracowano</div>
                 <div class="stat-wartosc" id="stat-zrobione">0h</div>
+            </div>
+            <div class="stat-karta akcent">
+                <div class="stat-tytul">Zarobiono</div>
+                <div class="stat-wartosc" id="stat-zarobiono">0 zł</div>
+            </div>
+            <div class="stat-karta akcent-kasa">
+                <div class="stat-tytul">Wypłata (Całość)</div>
+                <div class="stat-wartosc" id="stat-wyplata">0 zł</div>
             </div>
         </div>
         
@@ -37,35 +41,41 @@
     </div>
 
     <script>
-        // Zmienne do trzymania naszych statystyk
         let lacznieGodzin = 0;
-        let nockiGodzin = 0;
         let zrobioneGodzin = 0;
+        let lacznieZarobki = 0;
+        let obecneZarobki = 0;
         
-        // Pobieramy zaznaczone dni z pamięci telefonu (jeśli coś tam już jest)
+        // Stawki godzinowe
+        const STAWKA_DZIEN = 22.60;
+        const STAWKA_NOC = 28.50;
+
         let przepracowaneDni = JSON.parse(localStorage.getItem('przepracowane')) || [];
 
-        // Funkcja do obliczania czasu trwania zmiany (radzi sobie z nockami przez północ)
         function policzCzas(od, doGodzina) {
             if (!od || !doGodzina || (od === '00:00' && doGodzina === '00:00')) return 0;
             let [h1, m1] = od.split(':').map(Number);
             let [h2, m2] = doGodzina.split(':').map(Number);
             let start = h1 + (m1 / 60);
             let koniec = h2 + (m2 / 60);
-            if (koniec < start) koniec += 24; // Przejście przez północ
+            if (koniec < start) koniec += 24; 
             return koniec - start;
         }
 
-        // Funkcja przeliczająca i aktualizująca liczniki na ekranie
+        // Funkcja do formatowania waluty (np. 1250.5 na "1 250,50")
+        function formatujKase(kwota) {
+            return kwota.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
         function aktualizujStatystyki() {
             document.getElementById('stat-suma').innerText = lacznieGodzin + 'h';
-            document.getElementById('stat-nocki').innerText = nockiGodzin + 'h';
             document.getElementById('stat-zrobione').innerText = zrobioneGodzin + 'h';
+            document.getElementById('stat-zarobiono').innerText = formatujKase(obecneZarobki) + ' zł';
+            document.getElementById('stat-wyplata').innerText = formatujKase(lacznieZarobki) + ' zł';
         }
 
         async function pobierzIWyswietlGrafik() {
             try {
-                // Zapobiega cachowaniu pliku JSON - zawsze pobiera świeży!
                 const odpowiedz = await fetch('moj_grafik.json?v=' + Date.now());
                 const dane = await odpowiedz.json();
                 
@@ -77,60 +87,60 @@
                 let nastepnaZmianaZaleziona = false;
 
                 dane.forEach((dzien, index) => {
-                    // RESET ZMIENNYCH DLA DANEGO DNIA
                     const czyWolne = !dzien.od || dzien.od.trim() === '' || (dzien.od === '00:00' && dzien.do === '00:00');
                     const czyNocka = dzien.od === '22:00'; 
                     const czyDzisiaj = dzien.data === dzisiejszaData;
                     const czasZmiany = policzCzas(dzien.od, dzien.do);
                     
-                    // Sprawdzanie czy to weekend
                     const dataObiekt = new Date(dzien.data);
-                    const dzienTygodnia = dataObiekt.getDay(); // 0 = Niedziela, 6 = Sobota
+                    const dzienTygodnia = dataObiekt.getDay(); 
                     const czyWeekend = dzienTygodnia === 0 || dzienTygodnia === 6;
+
+                    // OBLICZANIE KASY DLA DANEGO DNIA
+                    let zarobekDnia = 0;
+                    if (!czyWolne) {
+                        zarobekDnia = czasZmiany * (czyNocka ? STAWKA_NOC : STAWKA_DZIEN);
+                    }
 
                     // AKTUALIZACJA GŁÓWNYCH LICZNIKÓW
                     lacznieGodzin += czasZmiany;
-                    if (czyNocka) nockiGodzin += czasZmiany;
+                    lacznieZarobki += zarobekDnia;
                     
-                    // Sprawdzamy czy dzień był już odhaczony w pamięci
                     const czyOdhaczony = przepracowaneDni.includes(dzien.data);
-                    if (czyOdhaczony) zrobioneGodzin += czasZmiany;
+                    if (czyOdhaczony) {
+                        zrobioneGodzin += czasZmiany;
+                        obecneZarobki += zarobekDnia;
+                    }
 
-                    // ODLICZANIE DO NASTĘPNEJ ZMIANY
+                    // ODLICZANIE
                     if (!czyWolne && !nastepnaZmianaZaleziona) {
                         const dataZmiany = new Date(`${dzien.data}T${dzien.od}:00`);
                         if (dataZmiany > dzisiaj) {
                             nastepnaZmianaZaleziona = true;
-                            // Proste odliczanie - ile godzin zostało
-                            const zostaloMs = dataZmiany - dzisiaj;
-                            const zostaloGodzin = Math.floor(zostaloMs / (1000 * 60 * 60));
+                            const zostaloGodzin = Math.floor((dataZmiany - dzisiaj) / (1000 * 60 * 60));
                             if(zostaloGodzin < 24) {
                                 document.getElementById('nastepna-zmiana').innerHTML = `⏳ Następna zmiana za: <b>~${zostaloGodzin}h</b>`;
                             } else {
-                                const zostaloDni = Math.floor(zostaloGodzin / 24);
-                                document.getElementById('nastepna-zmiana').innerHTML = `⏳ Następna zmiana za: <b>${zostaloDni} dni</b>`;
+                                document.getElementById('nastepna-zmiana').innerHTML = `⏳ Następna zmiana za: <b>${Math.floor(zostaloGodzin / 24)} dni</b>`;
                             }
                         }
                     }
 
-                    // TWORZENIE KAFELKA
                     const karta = document.createElement('div');
-                    
-                    // Nadawanie klas
                     let klasy = 'dzien-karta';
                     if (czyWolne) klasy += ' wolne';
                     if (czyDzisiaj) klasy += ' dzisiaj';
                     if (czyWeekend) klasy += ' weekend';
-                    if (czyOdhaczony) klasy += ' odhaczone'; // Wyciemnia kafelek, jeśli zrobiony
+                    if (czyOdhaczony) klasy += ' odhaczone';
                     karta.className = klasy;
                     
                     const godzinyTekst = czyWolne ? 'WOLNE 🎉' : `${dzien.od} - ${dzien.do} ${czyNocka ? '🌙' : '☀️'}`;
 
-                    // Budowa wnętrza kafelka (dodany checkbox)
+                    // Przekazujemy zarobek do HTML-a, żeby móc go później odejmować/dodawać checkboxem
                     karta.innerHTML = `
                         <div class="lewa-strona">
                             <label class="custom-checkbox ${czyWolne ? 'ukryty' : ''}">
-                                <input type="checkbox" id="check-${index}" data-data="${dzien.data}" data-godziny="${czasZmiany}" ${czyOdhaczony ? 'checked' : ''}>
+                                <input type="checkbox" data-data="${dzien.data}" data-godziny="${czasZmiany}" data-kasa="${zarobekDnia}" ${czyOdhaczony ? 'checked' : ''}>
                                 <span class="checkmark"></span>
                             </label>
                             <div class="data-blok">
@@ -140,45 +150,40 @@
                         </div>
                         <div class="godziny">${godzinyTekst}</div>
                     `;
-                    
                     pojemnik.appendChild(karta);
                 });
 
-                // Zabezpieczenie, jeśli nie znaleziono żadnej przyszłej zmiany
-                if(!nastepnaZmianaZaleziona) {
-                    document.getElementById('nastepna-zmiana').innerText = "Wszystkie zmiany w tym miesiącu za Tobą! 🍻";
-                }
+                if(!nastepnaZmianaZaleziona) document.getElementById('nastepna-zmiana').innerText = "Wszystkie zmiany za Tobą! 🍻";
 
                 aktualizujStatystyki();
                 obsluzCheckboxy();
 
             } catch (blad) {
-                document.getElementById('grafik-pojemnik').innerHTML = '<div class="karta-bledu">Nie udało się załadować danych z systemu.</div>';
+                document.getElementById('grafik-pojemnik').innerHTML = '<div class="karta-bledu">Nie udało się załadować danych.</div>';
                 console.error(blad);
             }
         }
 
-        // Funkcja przypisująca akcje do checkboxów
         function obsluzCheckboxy() {
-            const checkboxy = document.querySelectorAll('input[type="checkbox"]');
-            
-            checkboxy.forEach(box => {
+            document.querySelectorAll('input[type="checkbox"]').forEach(box => {
                 box.addEventListener('change', function() {
                     const dataDnia = this.getAttribute('data-data');
                     const czasDnia = parseFloat(this.getAttribute('data-godziny'));
+                    const kasaDnia = parseFloat(this.getAttribute('data-kasa'));
                     const kartaDnia = this.closest('.dzien-karta');
 
                     if (this.checked) {
                         przepracowaneDni.push(dataDnia);
                         zrobioneGodzin += czasDnia;
+                        obecneZarobki += kasaDnia;
                         kartaDnia.classList.add('odhaczone');
                     } else {
                         przepracowaneDni = przepracowaneDni.filter(d => d !== dataDnia);
                         zrobioneGodzin -= czasDnia;
+                        obecneZarobki -= kasaDnia;
                         kartaDnia.classList.remove('odhaczone');
                     }
                     
-                    // Zapisujemy nowy stan do pamięci telefonu
                     localStorage.setItem('przepracowane', JSON.stringify(przepracowaneDni));
                     aktualizujStatystyki();
                 });
