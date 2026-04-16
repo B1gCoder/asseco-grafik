@@ -306,3 +306,58 @@ h1 {
     text-align: center;
     border: 1px solid rgba(239, 68, 68, 0.2);
 }
+
+.top-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: -20px;
+}
+
+.btn-export {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-export:hover {
+    background: var(--accent-work);
+    color: var(--bg-main);
+}
+
+/* PROGRESS BAR */
+.progress-section {
+    margin-bottom: 2rem;
+    background: var(--card-bg);
+    padding: 1rem;
+    border-radius: 16px;
+    border: 1px solid var(--card-border);
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.progress-bar-bg {
+    height: 10px;
+    background: #1f2937;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent-work), var(--accent-free));
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+    transition: width 1s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+}
