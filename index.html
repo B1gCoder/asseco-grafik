@@ -95,7 +95,7 @@
             
             const dzisiaj = new Date();
             const dzisiajStr = dzisiaj.toISOString().split('T')[0];
-            let nastepnaZmianaZaleziona = false; // Przywrócona zmienna
+            let nastepnaZmianaZaleziona = false;
 
             daneGrafiku.forEach((dz, i) => {
                 const czas = policzCzas(dz.od, dz.do);
@@ -108,9 +108,15 @@
                 lacznieZarobki += kasa;
                 if(odhaczony) { zrobioneGodzin += czas; obecneZarobki += kasa; }
 
-                // PRZYWRÓCONE ODLICZANIE DO ZMIANY
+                // NAPRAWIONE ODLICZANIE (Kuloodporne tworzenie daty)
                 if (!wolne && !nastepnaZmianaZaleziona) {
-                    const dataZmiany = new Date(`${dz.data}T${dz.od}:00`);
+                    // Rozbijamy datę i godzinę na części pierwsze
+                    const [rok, miesiac, dzien] = dz.data.split('-');
+                    const [godz, min] = dz.od.split(':');
+                    
+                    // JavaScript liczy miesiące od 0, dlatego robimy miesiac - 1
+                    const dataZmiany = new Date(rok, miesiac - 1, dzien, godz, min);
+                    
                     if (dataZmiany > dzisiaj) {
                         nastepnaZmianaZaleziona = true;
                         const zostaloGodzin = Math.floor((dataZmiany - dzisiaj) / (1000 * 60 * 60));
@@ -140,7 +146,6 @@
                 poj.appendChild(karta);
             });
 
-            // Przywrócony tekst, gdy zrobisz już wszystkie zmiany w miesiącu
             if(!nastepnaZmianaZaleziona) {
                 document.getElementById('nastepna-zmiana').innerText = "Wszystkie zmiany w tym miesiącu za Tobą! 🍻";
             }
