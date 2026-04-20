@@ -7,10 +7,12 @@
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0b0f19">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -20,7 +22,7 @@
                 <button onclick="eksportujDoKalendarza()" class="btn-export">📅 Eksportuj</button>
             </div>
             <h1>Mój Grafik</h1>
-            <p class="subtitle" id="nastepna-zmiana">Ładowanie...</p>
+            <p class="subtitle" id="nastepna-zmiana">Synchronizacja...</p>
         </header>
 
         <div class="progress-section">
@@ -53,21 +55,25 @@
         </div>
         
         <div id="grafik-pojemnik">
-            <div class="loader">Synchronizacja...</div>
+            <div class="loader">Ładowanie grafiku z systemu...</div>
         </div>
     </div>
 
     <script>
-        // --- PWA: Rejestracja Service Workera ---
+        // Rejestracja Service Workera dla PWA
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js');
+            navigator.serviceWorker.register('sw.js').catch(err => console.log("Błąd SW:", err));
         }
 
+        // Dane finansowe i liczniki
         let lacznieGodzin = 0, zrobioneGodzin = 0, lacznieZarobki = 0, obecneZarobki = 0;
-        const STAWKA_DZIEN = 22.60, STAWKA_NOC = 28.50;
+        const STAWKA_DZIEN = 22.60;
+        const STAWKA_NOC = 28.50;
+        
         let daneGrafiku = [];
         let przepracowaneDni = JSON.parse(localStorage.getItem('przepracowane')) || [];
 
+        // Funkcja obliczająca czas trwania zmiany
         function policzCzas(od, doG) {
             if (!od || !doG || (od === '00:00' && doG === '00:00')) return 0;
             let start = parseInt(od.split(':')[0]) + parseInt(od.split(':')[1])/60;
@@ -75,82 +81,82 @@
             return koniec < start ? (koniec + 24) - start : koniec - start;
         }
 
+        // Formatowanie waluty do polskiego standardu
+        function formatujPLN(kwota) {
+            return kwota.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł';
+        }
+
+        // Aktualizacja interfejsu
         function aktualizujUI() {
             document.getElementById('stat-suma').innerText = lacznieGodzin + 'h';
             document.getElementById('stat-zrobione').innerText = zrobioneGodzin + 'h';
-            document.getElementById('stat-zarobiono').innerText = obecneZarobki.toFixed(2) + ' zł';
-            document.getElementById('stat-wyplata').innerText = lacznieZarobki.toFixed(2) + ' zł';
+            document.getElementById('stat-zarobiono').innerText = formatujPLN(obecneZarobki);
+            document.getElementById('stat-wyplata').innerText = formatujPLN(lacznieZarobki);
             
-            // Postęp
             const procent = lacznieGodzin > 0 ? (zrobioneGodzin / lacznieGodzin * 100) : 0;
             document.getElementById('progress-fill').style.width = procent + '%';
             document.getElementById('progress-percent').innerText = Math.round(procent) + '%';
         }
 
         async function pobierzGrafik() {
-            const res = await fetch('moj_grafik.json?v=' + Date.now());
-            daneGrafiku = await res.json();
-            const poj = document.getElementById('grafik-pojemnik');
-            poj.innerHTML = '';
-            
-            const dzisiaj = new Date();
-            const dzisiajStr = dzisiaj.toISOString().split('T')[0];
-            let nastepnaZmianaZaleziona = false;
+            try {
+                const res = await fetch('moj_grafik.json?v=' + Date.now());
+                daneGrafiku = await res.json();
+                const poj = document.getElementById('grafik-pojemnik');
+                poj.innerHTML = '';
+                
+                const dzisiaj = new Date();
+                const dzisiajStr = dzisiaj.toISOString().split('T')[0];
+                let nastepnaZmianaZaleziona = false;
 
-            daneGrafiku.forEach((dz, i) => {
-                const czas = policzCzas(dz.od, dz.do);
-                const nocka = dz.od === '22:00';
-                const kasa = czas * (nocka ? STAWKA_NOC : STAWKA_DZIEN);
-                const odhaczony = przepracowaneDni.includes(dz.data);
-                const wolne = czas === 0;
+                daneGrafiku.forEach((dz, i) => {
+                    const czas = policzCzas(dz.od, dz.do);
+                    const nocka = dz.od === '22:00';
+                    const kasa = czas * (nocka ? STAWKA_NOC : STAWKA_DZIEN);
+                    const odhaczony = przepracowaneDni.includes(dz.data);
+                    const wolne = czas === 0;
 
-                lacznieGodzin += czas;
-                lacznieZarobki += kasa;
-                if(odhaczony) { zrobioneGodzin += czas; obecneZarobki += kasa; }
+                    lacznieGodzin += czas;
+                    lacznieZarobki += kasa;
+                    if(odhaczony) { zrobioneGodzin += czas; obecneZarobki += kasa; }
 
-                // NAPRAWIONE ODLICZANIE (Kuloodporne tworzenie daty)
-                if (!wolne && !nastepnaZmianaZaleziona) {
-                    // Rozbijamy datę i godzinę na części pierwsze
-                    const [rok, miesiac, dzien] = dz.data.split('-');
-                    const [godz, min] = dz.od.split(':');
-                    
-                    // JavaScript liczy miesiące od 0, dlatego robimy miesiac - 1
-                    const dataZmiany = new Date(rok, miesiac - 1, dzien, godz, min);
-                    
-                    if (dataZmiany > dzisiaj) {
-                        nastepnaZmianaZaleziona = true;
-                        const zostaloGodzin = Math.floor((dataZmiany - dzisiaj) / (1000 * 60 * 60));
-                        if(zostaloGodzin < 24) {
-                            document.getElementById('nastepna-zmiana').innerHTML = `⏳ Następna zmiana za: <b>~${zostaloGodzin}h</b>`;
-                        } else {
-                            document.getElementById('nastepna-zmiana').innerHTML = `⏳ Następna zmiana za: <b>${Math.floor(zostaloGodzin / 24)} dni</b>`;
+                    // ODLICZANIE DO ZMIANY (Obsługa formatu: "21-04-2026 wtorek")
+                    if (!wolne && !nastepnaZmianaZaleziona) {
+                        const czystaData = dz.data.split(' ')[0].trim();
+                        const czesci = czystaData.split('-');
+                        const dataZmiany = new Date(parseInt(czesci[2]), parseInt(czesci[1]) - 1, parseInt(czesci[0]), parseInt(dz.od.split(':')[0]), parseInt(dz.od.split(':')[1]));
+                        
+                        if (dataZmiany > dzisiaj) {
+                            nastepnaZmianaZaleziona = true;
+                            const diff = dataZmiany - dzisiaj;
+                            const h = Math.floor(diff / (1000 * 60 * 60));
+                            document.getElementById('nastepna-zmiana').innerHTML = h < 24 ? `⏳ Zmiana za: <b>~${h}h</b>` : `⏳ Zmiana za: <b>${Math.floor(h/24)} dni</b>`;
                         }
                     }
-                }
 
-                const karta = document.createElement('div');
-                karta.className = `dzien-karta ${wolne?'wolne':''} ${dz.data===dzisiajStr?'dzisiaj':''} ${odhaczony?'odhaczone':''}`;
-                karta.innerHTML = `
-                    <div class="lewa-strona">
-                        <label class="custom-checkbox ${wolne?'ukryty':''}">
-                            <input type="checkbox" onchange="toggleDzien('${dz.data}', ${czas}, ${kasa}, this)" ${odhaczony?'checked':''}>
-                            <span class="checkmark"></span>
-                        </label>
-                        <div class="data-blok">
-                            <div class="data">${dz.data}</div>
-                            ${dz.data===dzisiajStr?'<div class="dzisiaj-tag">Dzisiaj</div>':''}
+                    const karta = document.createElement('div');
+                    karta.className = `dzien-karta ${wolne?'wolne':''} ${dz.data.startsWith(dzisiajStr)?'dzisiaj':''} ${odhaczony?'odhaczone':''}`;
+                    
+                    karta.innerHTML = `
+                        <div class="lewa-strona">
+                            <label class="custom-checkbox ${wolne?'ukryty':''}">
+                                <input type="checkbox" onchange="toggleDzien('${dz.data}', ${czas}, ${kasa}, this)" ${odhaczony?'checked':''}>
+                                <span class="checkmark"></span>
+                            </label>
+                            <div class="data-blok">
+                                <div class="data">${dz.data}</div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="godziny">${wolne?'WOLNE':`${dz.od}-${dz.do} ${nocka?'🌙':'☀️'}`}</div>
-                `;
-                poj.appendChild(karta);
-            });
+                        <div class="godziny">${wolne?'WOLNE 🎉':`${dz.od}-${dz.do} ${nocka?'🌙':'☀️'}`}</div>
+                    `;
+                    poj.appendChild(karta);
+                });
 
-            if(!nastepnaZmianaZaleziona) {
-                document.getElementById('nastepna-zmiana').innerText = "Wszystkie zmiany w tym miesiącu za Tobą! 🍻";
+                if(!nastepnaZmianaZaleziona) document.getElementById('nastepna-zmiana').innerText = "Wszystkie zmiany za Tobą! 🍻";
+                aktualizujUI();
+            } catch (e) {
+                document.getElementById('grafik-pojemnik').innerHTML = '<div class="karta-bledu">Błąd ładowania danych.</div>';
             }
-
-            aktualizujUI();
         }
 
         function toggleDzien(data, h, pln, el) {
@@ -167,27 +173,22 @@
             aktualizujUI();
         }
 
-        // --- EKSPORT DO KALENDARZA (.ics) ---
         function eksportujDoKalendarza() {
-            let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//AssecoBot//PL\n";
+            let ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//AssecoBot//PL\n";
             daneGrafiku.forEach(dz => {
                 if(dz.od && dz.od !== '00:00') {
-                    const start = dz.data.replace(/-/g, '') + 'T' + dz.od.replace(':', '') + '00';
-                    let koniecData = dz.data;
-                    if(dz.od === '22:00') { // Jeśli nocka, koniec jest następnego dnia
-                        let d = new Date(dz.data);
-                        d.setDate(d.getDate() + 1);
-                        koniecData = d.toISOString().split('T')[0];
-                    }
-                    const koniec = koniecData.replace(/-/g, '') + 'T' + dz.do.replace(':', '') + '00';
-                    icsContent += `BEGIN:VEVENT\nSUMMARY:Praca Asseco\nDTSTART:${start}\nDTEND:${koniec}\nEND:VEVENT\n`;
+                    const c = dz.data.split(' ')[0].split('-');
+                    const s = c[2]+c[1]+c[0]+'T'+dz.od.replace(':','')+'00';
+                    let kData = new Date(c[2], c[1]-1, c[0]);
+                    if(dz.od === '22:00') kData.setDate(kData.getDate()+1);
+                    const k = kData.toISOString().split('T')[0].replace(/-/g,'')+'T'+dz.do.replace(':','')+'00';
+                    ics += `BEGIN:VEVENT\nSUMMARY:Praca Asseco\nDTSTART:${s}\nDTEND:${k}\nEND:VEVENT\n`;
                 }
             });
-            icsContent += "END:VCALENDAR";
-            const blob = new Blob([icsContent], {type: 'text/calendar'});
-            const url = URL.createObjectURL(blob);
+            ics += "END:VCALENDAR";
+            const blob = new Blob([ics], {type: 'text/calendar'});
             const a = document.createElement('a');
-            a.href = url; a.download = 'grafik.ics'; a.click();
+            a.href = URL.createObjectURL(blob); a.download = 'grafik.ics'; a.click();
         }
 
         pobierzGrafik();
