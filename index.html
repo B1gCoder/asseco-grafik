@@ -93,7 +93,9 @@
             const poj = document.getElementById('grafik-pojemnik');
             poj.innerHTML = '';
             
-            const dzisiajStr = new Date().toISOString().split('T')[0];
+            const dzisiaj = new Date();
+            const dzisiajStr = dzisiaj.toISOString().split('T')[0];
+            let nastepnaZmianaZaleziona = false; // Przywrócona zmienna
 
             daneGrafiku.forEach((dz, i) => {
                 const czas = policzCzas(dz.od, dz.do);
@@ -105,6 +107,20 @@
                 lacznieGodzin += czas;
                 lacznieZarobki += kasa;
                 if(odhaczony) { zrobioneGodzin += czas; obecneZarobki += kasa; }
+
+                // PRZYWRÓCONE ODLICZANIE DO ZMIANY
+                if (!wolne && !nastepnaZmianaZaleziona) {
+                    const dataZmiany = new Date(`${dz.data}T${dz.od}:00`);
+                    if (dataZmiany > dzisiaj) {
+                        nastepnaZmianaZaleziona = true;
+                        const zostaloGodzin = Math.floor((dataZmiany - dzisiaj) / (1000 * 60 * 60));
+                        if(zostaloGodzin < 24) {
+                            document.getElementById('nastepna-zmiana').innerHTML = `⏳ Następna zmiana za: <b>~${zostaloGodzin}h</b>`;
+                        } else {
+                            document.getElementById('nastepna-zmiana').innerHTML = `⏳ Następna zmiana za: <b>${Math.floor(zostaloGodzin / 24)} dni</b>`;
+                        }
+                    }
+                }
 
                 const karta = document.createElement('div');
                 karta.className = `dzien-karta ${wolne?'wolne':''} ${dz.data===dzisiajStr?'dzisiaj':''} ${odhaczony?'odhaczone':''}`;
@@ -123,6 +139,12 @@
                 `;
                 poj.appendChild(karta);
             });
+
+            // Przywrócony tekst, gdy zrobisz już wszystkie zmiany w miesiącu
+            if(!nastepnaZmianaZaleziona) {
+                document.getElementById('nastepna-zmiana').innerText = "Wszystkie zmiany w tym miesiącu za Tobą! 🍻";
+            }
+
             aktualizujUI();
         }
 
