@@ -48,7 +48,7 @@ const puppeteer = require('puppeteer');
   await page.waitForSelector(selektorMenu);
 
   console.log('Znalazłem! Przechodzę do grafiku...');
-
+  await new Promise(r => setTimeout(r, 5000)); 
   // 2. Wykonujemy kliknięcie i czekamy na przeładowanie strony
   await Promise.all([
     page.waitForNavigation(), 
